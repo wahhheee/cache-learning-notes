@@ -1,3 +1,0 @@
-version: 2
-linters: { disable-all: true, enable: [govet, staticcheck, ineffassign, misspell, revive] }
-linters-settings: { revive: { rules: [{name: exported, severity: warning, arguments: [disableStutteringCheck]}] } }
