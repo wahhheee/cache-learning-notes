@@ -1,4 +1,3 @@
-// store/byteview_test.go
 package store
 
 import (

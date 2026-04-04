@@ -1,4 +1,3 @@
-// store/lru_simple_test.go
 package store
 
 import (
