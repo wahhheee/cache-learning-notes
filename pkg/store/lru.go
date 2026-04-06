@@ -91,8 +91,7 @@ func (c *LruCache) Get(key string) (Value, bool) {
 	c.mu.RUnlock()
 
 	if hasExp && time.Now().After(expTime) {
-
-		go c.Delete(key)
+		c.Delete(key) // 直接调用 Delete 方法
 		return nil, false
 	}
 
@@ -196,6 +195,7 @@ func (c *LruCache) cleanupLoop() {
 	}
 }
 
+// cleanupExpired 调用前需持用锁
 func (c *LruCache) cleanupExpired() {
 	now := time.Now()
 	for key, expTime := range c.expires {
