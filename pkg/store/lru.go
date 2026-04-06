@@ -117,7 +117,8 @@ func (c *LruCache) Set(key string, value Value) {
 	// 若 key 已存在则更新缓存
 	if elem, ok := c.items[key]; ok {
 		old := elem.Value.(*lruEntry)
-		c.usedBytes += int64(value.Len() - old.value.Len())
+		c.usedBytes -= int64(len(key) + old.value.Len()) // 减去旧值的大小
+		c.usedBytes += int64(len(key) + value.Len())     // 加上新值的大小
 		old.value = value
 		c.list.MoveToFront(elem)
 
@@ -169,10 +170,14 @@ func (c *LruCache) removeElement(elem *list.Element) {
 
 // evict 调用前须持用锁
 func (c *LruCache) evict() {
-	for c.maxBytes > 0 && c.usedBytes > c.maxBytes && c.list.Len() > 0 {
-		elem := c.list.Back()
-		if elem != nil {
-			c.removeElement(elem)
+	if c.maxBytes > 0 { // 只有当 maxBytes 大于 0 时才进行淘汰操作
+		for c.usedBytes > c.maxBytes && c.list.Len() > 0 {
+			elem := c.list.Back()
+			if elem != nil {
+				e := elem.Value.(*lruEntry)
+				c.usedBytes -= int64(len(e.key) + e.value.Len()) // 减去被移除条目的大小
+				c.removeElement(elem)
+			}
 		}
 	}
 }
@@ -207,4 +212,8 @@ func (c *LruCache) Close() {
 		c.cleanupTicker.Stop()
 		close(c.closeCh)
 	}
+}
+
+func (c *LruCache) Len() int64 {
+	return int64(c.list.Len()) // 返回缓存中实际的条目数
 }

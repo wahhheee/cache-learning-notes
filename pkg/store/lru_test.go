@@ -248,3 +248,99 @@ func TestLRUCacheActiveCleanup(t *testing.T) {
 		t.Errorf("keep should still exist")
 	}
 }
+
+func TestLRUCacheCapacityLimit(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes: 30, // 最多 30 字节
+	})
+	t.Log("cache len:", cache.Len())
+
+	// 添加 3 个数据，每个约 10 字节
+	cache.Set("a", ByteView("aaaaaaaaaa")) // 10 bytes
+	t.Log("cache len:", cache.Len())
+
+	cache.Set("b", ByteView("bbbbbbbbbb")) // 10 bytes
+	t.Log("cache len:", cache.Len())
+
+	cache.Set("c", ByteView("cccccccccc")) // 10 bytes
+	// usedBytes = 30，刚刚好
+	t.Log("cache len:", cache.Len())
+
+	// 再添加一个，触发淘汰
+	cache.Set("d", ByteView("dddddddddd")) // 10 bytes
+	t.Log("cache len:", cache.Len())
+
+	// usedBytes = 40 > 30，淘汰最久的
+	// a 应该被淘汰
+	if _, ok := cache.Get("a"); ok {
+		t.Errorf("a should be evicted")
+	}
+
+	// b, c, d 应该还在
+	if _, ok := cache.Get("b"); !ok {
+		t.Errorf("b should exist")
+	}
+	if _, ok := cache.Get("c"); !ok {
+		t.Errorf("c should exist")
+	}
+	if _, ok := cache.Get("d"); !ok {
+		t.Errorf("d should exist")
+	}
+}
+
+func TestLRUCacheCapacityUpdate(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes: 20,
+	})
+
+	cache.Set("key", ByteView("short"))           // 9 bytes
+	cache.Set("key", ByteView("verylongervalue")) // 21 bytes
+
+	// usedBytes 应该变成 21
+	// 但 21 > 20，所以应该只保留 key
+	// 不会淘汰其他数据（因为只有这一个）
+	v, ok := cache.Get("key")
+	if !ok {
+		t.Errorf("key should exist")
+	}
+	if v.String() != "verylongervalue" {
+		t.Errorf("value should be updated")
+	}
+}
+
+func TestLRUCacheOnEvictedCalled(t *testing.T) {
+	var evicted []string
+	cache := NewLRUCache(Options{
+		MaxBytes: 20,
+		OnEvicted: func(key string, value Value) {
+			evicted = append(evicted, key)
+		},
+	})
+
+	cache.Set("a", ByteView("aaaaaaaaaa")) // 10 bytes
+	cache.Set("b", ByteView("bbbbbbbbbb")) // 10 bytes
+	cache.Set("c", ByteView("cccccccccc")) // 10 bytes → 淘汰 a
+
+	if len(evicted) != 1 || evicted[0] != "a" {
+		t.Errorf("expected evicted ['a'], got %v", evicted)
+	}
+}
+
+func TestLRUCacheZeroMaxBytes(t *testing.T) {
+	// maxBytes = 0 表示不限制容量
+	cache := NewLRUCache(Options{
+		MaxBytes: 0,
+	})
+
+	// 可以无限添加
+	for i := 0; i < 26; i++ {
+		t.Log("size", cache.Len())
+		t.Log("Push Key:", string(rune('a'+i%26)))
+		cache.Set(string(rune('a'+i%26)), ByteView("largevalue"))
+	}
+
+	if cache.Len() != 26 {
+		t.Log(cache.Len())
+		t.Errorf("expected 1000 items with no limit")
+	}
+}
