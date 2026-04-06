@@ -50,6 +50,32 @@ func NewLRUCache(opts Options) *LruCache {
 	return cache
 }
 
+func (c *LruCache) SetWithExpiration(key string, value Value, expiration time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if expiration > 0 {
+		c.expires[key] = time.Now().Add(expiration)
+	} else {
+		delete(c.expires, key)
+	}
+
+	if elem, ok := c.items[key]; ok {
+		old := elem.Value.(*lruEntry)
+		c.usedBytes += int64(value.Len() - old.value.Len())
+		old.value = value
+		c.list.MoveToFront(elem)
+		c.evict()
+		return
+	}
+
+	newEntry := &lruEntry{key, value}
+	elem := c.list.PushFront(newEntry)
+	c.items[key] = elem
+	c.usedBytes += int64(len(key) + value.Len())
+	c.evict()
+}
+
 // Get 根据 key 返回 value
 func (c *LruCache) Get(key string) (Value, bool) {
 	c.mu.RLock()

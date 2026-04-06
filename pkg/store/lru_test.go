@@ -153,3 +153,98 @@ func TestLRUCacheConcurrent(t *testing.T) {
 
 	// 不应该 panic，说明并发安全
 }
+
+func TestLRUCacheTTL(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes:        100,
+		CleanupInterval: 10 * time.Millisecond, // 快速清理
+	})
+	defer cache.Close()
+
+	// 设置一个 50ms 后过期的数据
+	cache.SetWithExpiration("short-lived", ByteView("value1"), 50*time.Millisecond)
+
+	// 立刻获取，应该存在
+	v, ok := cache.Get("short-lived")
+	if !ok || v.String() != "value1" {
+		t.Errorf("should exist immediately")
+	}
+
+	// 等待 100ms
+	time.Sleep(100 * time.Millisecond)
+
+	// 应该已经过期
+	v, ok = cache.Get("short-lived")
+	if ok {
+		t.Errorf("should be expired after 100ms")
+	}
+}
+
+func TestLRUCacheTTLNeverExpires(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes: 100,
+	})
+
+	// 永不过期
+	cache.Set("permanent", ByteView("value"))
+
+	// 等多久都不应该过期
+	time.Sleep(100 * time.Millisecond)
+
+	v, ok := cache.Get("permanent")
+	if !ok || v.String() != "value" {
+		t.Errorf("should still exist")
+	}
+}
+
+func TestLRUCacheTTLUpdate(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes:        100,
+		CleanupInterval: 10 * time.Millisecond,
+	})
+	defer cache.Close()
+
+	// 设置一个很快过期的
+	cache.SetWithExpiration("key", ByteView("old"), 50*time.Millisecond)
+
+	// 用新的值覆盖（新的过期时间）
+	cache.SetWithExpiration("key", ByteView("new"), time.Hour)
+
+	// 等 100ms
+	time.Sleep(100 * time.Millisecond)
+
+	// 新值应该还在
+	v, ok := cache.Get("key")
+	if !ok || v.String() != "new" {
+		t.Errorf("new value should exist")
+	}
+}
+
+func TestLRUCacheActiveCleanup(t *testing.T) {
+	cache := NewLRUCache(Options{
+		MaxBytes:        100,
+		CleanupInterval: 50 * time.Millisecond,
+	})
+	defer cache.Close()
+
+	// 设置多个过期的数据
+	cache.SetWithExpiration("expired1", ByteView("v1"), 30*time.Millisecond)
+	cache.SetWithExpiration("expired2", ByteView("v2"), 30*time.Millisecond)
+	cache.SetWithExpiration("keep", ByteView("v3"), time.Hour)
+
+	// 等待主动清理
+	time.Sleep(200 * time.Millisecond)
+
+	// expired1 和 expired2 应该被清理协程删除了
+	if _, ok := cache.Get("expired1"); ok {
+		t.Errorf("expired1 should be cleaned up")
+	}
+	if _, ok := cache.Get("expired2"); ok {
+		t.Errorf("expired2 should be cleaned up")
+	}
+
+	// keep 还在
+	if _, ok := cache.Get("keep"); !ok {
+		t.Errorf("keep should still exist")
+	}
+}
