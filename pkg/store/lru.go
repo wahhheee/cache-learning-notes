@@ -28,7 +28,7 @@ type lruEntry struct {
 	value Value
 }
 
-func NewLRUCache(opts Options) *LruCache {
+func newLRUCache(opts Options) *LruCache {
 	if opts.CleanupInterval <= 0 {
 		opts.CleanupInterval = 1 * time.Minute
 	}
@@ -216,4 +216,14 @@ func (c *LruCache) Close() {
 
 func (c *LruCache) Len() int64 {
 	return int64(c.list.Len()) // 返回缓存中实际的条目数
+}
+
+func (c *LruCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.list = list.New()
+	c.items = make(map[string]*list.Element)
+	c.expires = make(map[string]time.Time)
+	c.usedBytes = 0
 }

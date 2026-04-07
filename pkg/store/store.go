@@ -4,9 +4,8 @@ import "time"
 
 // Value 缓存值接口
 type Value interface {
-	Len() int
-	String() string // 返回数据大小
-
+	Len() int // 返回数据大小
+	String() string
 }
 
 // Store 缓存接口
@@ -49,15 +48,14 @@ func NewOptions() Options {
 	}
 }
 
-// NewStore 创建缓存存储实例 [unfinished]
+// NewStore 创建缓存存储实例
 func NewStore(cacheType CacheType, opts Options) Store {
 	switch cacheType {
 	case LRU2:
-		// return newLRU2Cache(opts)
-	case LRU:
-		// return newLRUCache(opts)
+		return newLRU2Cache(opts)
+	//case LRU:
+	//	return newLRUCache(opts)
 	default:
-		// return newLRUCache(opts)
+		return newLRU2Cache(opts)
 	}
-	return nil
 }

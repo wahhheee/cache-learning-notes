@@ -9,7 +9,7 @@ import (
 
 // 测试基本操作
 func TestLRUCacheBasic(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 100,
 	})
 
@@ -32,7 +32,7 @@ func TestLRUCacheBasic(t *testing.T) {
 
 // 测试更新
 func TestLRUCacheUpdate(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 100,
 	})
 
@@ -47,7 +47,7 @@ func TestLRUCacheUpdate(t *testing.T) {
 
 // 测试删除
 func TestLRUCacheDelete(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 100,
 	})
 
@@ -68,7 +68,7 @@ func TestLRUCacheDelete(t *testing.T) {
 
 // 测试容量限制
 func TestLRUCacheCapacity(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 10, // 只够存很少的数据
 	})
 
@@ -91,7 +91,7 @@ func TestLRUCacheCapacity(t *testing.T) {
 // 测试淘汰回调
 func TestLRUCacheOnEvicted(t *testing.T) {
 	var evictedKeys []string
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 4,
 		OnEvicted: func(key string, value Value) {
 			evictedKeys = append(evictedKeys, key)
@@ -110,7 +110,7 @@ func TestLRUCacheOnEvicted(t *testing.T) {
 
 // 测试过期时间
 func TestLRUCacheExpiration(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes:        100,
 		CleanupInterval: 50 * time.Millisecond,
 	})
@@ -134,7 +134,7 @@ func TestLRUCacheExpiration(t *testing.T) {
 
 // 测试并发安全
 func TestLRUCacheConcurrent(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 1000,
 	})
 
@@ -155,7 +155,7 @@ func TestLRUCacheConcurrent(t *testing.T) {
 }
 
 func TestLRUCacheTTL(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes:        100,
 		CleanupInterval: 10 * time.Millisecond, // 快速清理
 	})
@@ -181,7 +181,7 @@ func TestLRUCacheTTL(t *testing.T) {
 }
 
 func TestLRUCacheTTLNeverExpires(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 100,
 	})
 
@@ -198,7 +198,7 @@ func TestLRUCacheTTLNeverExpires(t *testing.T) {
 }
 
 func TestLRUCacheTTLUpdate(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes:        100,
 		CleanupInterval: 10 * time.Millisecond,
 	})
@@ -221,7 +221,7 @@ func TestLRUCacheTTLUpdate(t *testing.T) {
 }
 
 func TestLRUCacheActiveCleanup(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes:        100,
 		CleanupInterval: 50 * time.Millisecond,
 	})
@@ -250,7 +250,7 @@ func TestLRUCacheActiveCleanup(t *testing.T) {
 }
 
 func TestLRUCacheCapacityLimit(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 30, // 最多 30 字节
 	})
 	t.Log("cache len:", cache.Len())
@@ -289,7 +289,7 @@ func TestLRUCacheCapacityLimit(t *testing.T) {
 }
 
 func TestLRUCacheCapacityUpdate(t *testing.T) {
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 20,
 	})
 
@@ -310,7 +310,7 @@ func TestLRUCacheCapacityUpdate(t *testing.T) {
 
 func TestLRUCacheOnEvictedCalled(t *testing.T) {
 	var evicted []string
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 20,
 		OnEvicted: func(key string, value Value) {
 			evicted = append(evicted, key)
@@ -328,7 +328,7 @@ func TestLRUCacheOnEvictedCalled(t *testing.T) {
 
 func TestLRUCacheZeroMaxBytes(t *testing.T) {
 	// maxBytes = 0 表示不限制容量
-	cache := NewLRUCache(Options{
+	cache := newLRUCache(Options{
 		MaxBytes: 0,
 	})
 
