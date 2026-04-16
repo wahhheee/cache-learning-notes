@@ -146,7 +146,11 @@ func NewConsistentHash(selfAddr string, opts ...Option) *Map {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				registry.PutEtcdConHashNodeCount(m.etcdCli, m.selfAddr, m.selfLoad)
+				// 上报最近一个统计窗口内的增量负载，并在本地原子清零。
+				current := atomic.SwapInt64(&m.selfLoad, 0)
+				if err := registry.PutEtcdConHashNodeCount(m.etcdCli, m.selfAddr, current); err != nil {
+					logrus.Errorf("failed to report node count for %s: %v", m.selfAddr, err)
+				}
 			}
 		}
 	}()
@@ -334,14 +338,14 @@ func (m *Map) updateHashRing(ctx context.Context) error {
 	for resp := range watchCh {
 		for _, event := range resp.Events {
 			hashRing := HashRing{}
-			json.Unmarshal(event.Kv.Value, &hashRing)
+			if err := json.Unmarshal(event.Kv.Value, &hashRing); err != nil {
+				logrus.Errorf("failed to unmarshal hashring: %v", err)
+				continue
+			}
 
 			m.mu.Lock()
 			m.keys = hashRing.Keys
 			m.hashMap = hashRing.HashMap
-
-			// 当前实现仅将自身负载计数在本地置零。
-			m.nodeCounts[m.selfAddr] = 0
 			m.mu.Unlock()
 		}
 	}
@@ -360,14 +364,14 @@ func (m *Map) syncHashRing() error {
 		Keys:    m.keys,
 		HashMap: m.hashMap,
 	}
-	hashRingData, _ := json.Marshal(hashRing)
+	hashRingData, err := json.Marshal(hashRing)
+	if err != nil {
+		return err
+	}
 
-	m.etcdCli.Put(context.Background(), "/consistenthash/hashring", string(hashRingData))
-
-	// 同步新哈希环后，将所有节点统计清零。
-	for addr := range m.nodeCounts {
-		m.nodeCounts[addr] = 0
-		registry.PutEtcdConHashNodeCount(m.etcdCli, addr, 0)
+	_, err = m.etcdCli.Put(context.Background(), "/consistenthash/hashring", string(hashRingData))
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -528,9 +532,7 @@ func (m *Map) checkAndRebalance() (error, bool) {
 	}
 
 	for addr, val := range m.nodeCounts {
-		// 当前实现以 m.nodeReplicas[m.selfAddr] 作为初始值。
-		// 若触发阈值判断，则会使用目标节点自身的副本数重新计算。
-		newReplicas := m.nodeReplicas[m.selfAddr]
+		newReplicas := m.nodeReplicas[addr]
 		flag := false
 
 		if float64(val)/float64(avg) > m.config.MaxLoadBalanceThreshold {
@@ -541,14 +543,12 @@ func (m *Map) checkAndRebalance() (error, bool) {
 			flag = true
 		}
 
-		// 限制副本数上下界。
 		if newReplicas > m.config.MaxReplicas {
 			newReplicas = m.config.MaxReplicas
 		}
 		if newReplicas < m.config.MinReplicas {
 			newReplicas = m.config.MinReplicas
 		}
-
 		if flag {
 			IsRebalance = true
 			err := m.rebalanceReplicas(addr, newReplicas)
